@@ -20,6 +20,11 @@
     .font-mono {
       font-family: 'JetBrains Mono', monospace;
     }
+    .force-ltr {
+      direction: ltr !important;
+      text-align: left !important;
+      unicode-bidi: isolate;
+    }
     .custom-glass {
       background: rgba(15, 23, 42, 0.78);
       backdrop-filter: blur(14px);
@@ -52,6 +57,23 @@
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen selection:bg-indigo-600 selection:text-white pb-16">
+
+  <!-- Unsaved Changes Notice Banner -->
+  <div id="unsavedBanner" class="hidden bg-amber-500/15 border-b border-amber-500/30 text-amber-200 px-4 py-2.5 text-xs flex items-center justify-between sticky top-0 z-50 backdrop-blur-md transition-all">
+    <div class="flex items-center gap-2">
+      <i class="fa-solid fa-circle-exclamation text-amber-400 text-sm"></i>
+      <span>ביצעת שינויים שנשמרו בדפדפן בלבד! <strong>לחץ כאן כדי לשמור ישירות לתוך קובץ ה-HTML במחשב:</strong></span>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="saveToFileDirectly()" class="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-3 py-1 rounded-lg text-xs transition flex items-center gap-1.5 shadow-md">
+        <i class="fa-solid fa-floppy-disk"></i>
+        <span>שמור לקובץ עכשיו</span>
+      </button>
+      <button onclick="dismissUnsavedBanner()" class="text-amber-400/80 hover:text-amber-200 p-1" title="סגור התראה">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+  </div>
 
   <div id="lockScreen" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-xl flex items-center justify-center p-4 transition-all duration-500">
     <div class="custom-glass rounded-3xl p-8 max-w-md w-full text-center shadow-2xl border border-indigo-500/20">
@@ -114,6 +136,15 @@
 
       <div class="flex items-center gap-2">
         <button 
+          onclick="openAddAccountModal()" 
+          class="bg-indigo-600 hover:bg-indigo-500 text-white p-2 sm:px-3 sm:py-2 rounded-xl text-xs font-medium transition flex items-center gap-1.5 shadow-md shadow-indigo-600/30"
+          title="הוספת חשבון חדש לכספת"
+        >
+          <i class="fa-solid fa-plus text-xs"></i>
+          <span class="hidden sm:inline">הוספת חשבון</span>
+        </button>
+
+        <button 
           onclick="toggleShowAllPasswords()" 
           id="toggleAllBtn"
           class="bg-slate-800/90 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-xl text-xs font-medium border border-slate-700 transition flex items-center gap-1.5"
@@ -124,12 +155,13 @@
         </button>
 
         <button 
-          onclick="exportUpdatedHtml()" 
-          class="bg-emerald-950/70 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-800/50 p-2 sm:px-3 sm:py-2 rounded-xl text-xs font-medium transition flex items-center gap-1.5"
-          title="הורדת קובץ HTML מעודכן עם כל הסיסמאות החדשות וההיסטוריה"
+          onclick="saveToFileDirectly()" 
+          id="saveFileHeaderBtn"
+          class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium p-2 sm:px-3 sm:py-2 rounded-xl text-xs transition flex items-center gap-1.5 shadow-md shadow-emerald-600/25"
+          title="שמירה ישירה או הורדת קובץ HTML מעודכן המכיל את כל השינויים בקוד"
         >
-          <i class="fa-solid fa-download text-xs"></i>
-          <span class="hidden sm:inline">הורדת קובץ מעודכן</span>
+          <i class="fa-solid fa-floppy-disk text-xs"></i>
+          <span class="hidden sm:inline">שמור שינויים לקובץ</span>
         </button>
 
         <button 
@@ -259,7 +291,7 @@
             id="editNewPassInput" 
             required 
             placeholder="הזן את הסיסמה החדשה..." 
-            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-mono text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-mono text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 force-ltr"
           >
         </div>
 
@@ -291,20 +323,252 @@
     </div>
   </div>
 
+  <div id="editAccountModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="custom-glass rounded-3xl p-6 max-w-lg w-full border border-slate-700 shadow-2xl max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-800">
+        <div>
+          <h3 class="font-bold text-white text-base flex items-center gap-2">
+            <i class="fa-solid fa-pen-to-square text-indigo-400 text-sm"></i>
+            עריכת כל פרטי החשבון
+          </h3>
+          <p class="text-xs text-slate-400 mt-0.5">עריכת שם, שם משתמש, סיסמה, קטגוריה ומידע נוסף במקום אחד</p>
+        </div>
+        <button onclick="closeEditAccountModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form onsubmit="saveEditedAccount(event)" class="space-y-3.5">
+        <input type="hidden" id="editDetailsId">
+
+        <div>
+          <label class="block text-xs text-slate-300 mb-1 font-medium">שם השירות / חשבון: <span class="text-rose-400">*</span></label>
+          <input 
+            type="text" 
+            id="editDetailsTitle" 
+            required 
+            placeholder="שם החשבון..." 
+            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          >
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-300 mb-1 font-medium">שם משתמש / מזהה / אימייל:</label>
+          <input 
+            type="text" 
+            id="editDetailsUser" 
+            placeholder="שם משתמש..." 
+            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-mono text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          >
+        </div>
+
+        <!-- Password section in full edit modal -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs text-slate-300 font-medium">סיסמה:</label>
+            <div class="flex items-center gap-2">
+              <button 
+                type="button" 
+                onclick="toggleEditPassInputVisibility()" 
+                class="text-[11px] text-slate-400 hover:text-slate-200 flex items-center gap-1 transition"
+                id="editPassVisibilityBtn"
+              >
+                <i class="fa-regular fa-eye text-[10px]" id="editPassVisibilityIcon"></i>
+                <span id="editPassVisibilityText">הצג</span>
+              </button>
+              <button 
+                type="button" 
+                onclick="generateSuggestedPasswordForEdit()" 
+                class="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition"
+              >
+                <i class="fa-solid fa-wand-magic-sparkles text-[10px]"></i>
+                חולל סיסמה
+              </button>
+            </div>
+          </div>
+          <input 
+            type="text" 
+            id="editDetailsPass" 
+            placeholder="הזן סיסמה..." 
+            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-mono text-indigo-300 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 force-ltr"
+          >
+        </div>
+
+        <div id="editHistoryOptionContainer" class="bg-indigo-950/40 border border-indigo-500/20 rounded-xl p-2.5">
+          <label class="flex items-start gap-2 cursor-pointer select-none">
+            <input 
+              type="checkbox" 
+              id="editAutoSaveHistory" 
+              checked 
+              class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 bg-slate-900 border-slate-700 w-4 h-4"
+            >
+            <div>
+              <span class="text-xs font-semibold text-indigo-200 block">במידה והסיסמה השתנתה – שמור את הקודמת בהיסטוריה</span>
+              <span class="text-[10px] text-slate-400 block">הסיסמה הישנה תתווסף אוטומטית להערות עם הסימון //</span>
+            </div>
+          </label>
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-300 mb-1 font-medium">קטגוריה:</label>
+          <select 
+            id="editDetailsCategory" 
+            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
+          >
+            <option value="general">כללי</option>
+            <option value="finance">בנקים ופיננסים</option>
+            <option value="tech">טכנולוגיה ותוכנה</option>
+            <option value="work">עבודה</option>
+            <option value="travel">תיירות ונסיעות</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-300 mb-1 font-medium">מידע נוסף / הערות:</label>
+          <textarea 
+            id="editDetailsGeneral" 
+            rows="4" 
+            placeholder="מידע נוסף, היסטוריה, קישורים, מספרי לקוח וכו'..." 
+            class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs font-mono text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 leading-relaxed"
+          ></textarea>
+        </div>
+
+        <div class="pt-2 flex gap-2">
+          <button type="button" onclick="closeEditAccountModal()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2.5 rounded-xl text-xs font-medium transition">ביטול</button>
+          <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl text-xs font-medium transition shadow-md shadow-indigo-600/30 flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-floppy-disk text-xs"></i>
+            <span>שמור את כל השינויים</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="addAccountModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="custom-glass rounded-3xl p-6 max-w-md w-full border border-slate-700 shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h3 class="font-bold text-white text-base flex items-center gap-2">
+            <i class="fa-solid fa-folder-plus text-indigo-400 text-sm"></i>
+            הוספת חשבון חדש
+          </h3>
+          <p class="text-xs text-slate-400 mt-0.5">הזן את פרטי החשבון לשמירה מאובטחת בכספת</p>
+        </div>
+        <button onclick="closeAddAccountModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form onsubmit="saveNewAccount(event)" class="space-y-3.5">
+        <div>
+          <label class="block text-xs text-slate-300 mb-1 font-medium">שם השירות / אתר: <span class="text-rose-400">*</span></label>
+          <input 
+            type="text" 
+            id="newAccountTitle" 
+            required 
+            placeholder="לדוגמה: Netflix, בנק הפועלים, Google..." 
+            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          >
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-300 mb-1 font-medium">שם משתמש / אימייל / מזהה:</label>
+          <input 
+            type="text" 
+            id="newAccountUser" 
+            placeholder="שם משתמש, דוא״ל או תעודת זהות..." 
+            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-mono text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          >
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs text-slate-300 font-medium">סיסמה:</label>
+            <button 
+              type="button" 
+              onclick="generateSuggestedPassword()" 
+              class="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition"
+            >
+              <i class="fa-solid fa-wand-magic-sparkles text-[10px]"></i>
+              צור סיסמה חזקה
+            </button>
+          </div>
+          <input 
+            type="text" 
+            id="newAccountPass" 
+            placeholder="הזן סיסמה או לחץ על 'צור סיסמה'..." 
+            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-mono text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 force-ltr"
+          >
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-300 mb-1 font-medium">קטגוריה:</label>
+          <select 
+            id="newAccountCategory" 
+            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
+          >
+            <option value="general">כללי</option>
+            <option value="finance">בנקים ופיננסים</option>
+            <option value="tech">טכנולוגיה ותוכנה</option>
+            <option value="work">עבודה</option>
+            <option value="travel">תיירות ונסיעות</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-300 mb-1 font-medium">מידע נוסף / הערות:</label>
+          <textarea 
+            id="newAccountGeneral" 
+            rows="3" 
+            placeholder="קישור כניסה, מספרי לקוח, הערות וכו'..." 
+            class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs font-mono text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          ></textarea>
+        </div>
+
+        <div class="pt-2 flex gap-2">
+          <button type="button" onclick="closeAddAccountModal()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2.5 rounded-xl text-xs font-medium transition">ביטול</button>
+          <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl text-xs font-medium transition shadow-md shadow-indigo-600/30 flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-plus text-xs"></i>
+            <span>הוסף חשבון</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="deleteAccountModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="custom-glass rounded-3xl p-6 max-w-sm w-full border border-rose-500/30 shadow-2xl text-center">
+      <div class="w-14 h-14 mx-auto mb-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 text-2xl">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <h3 class="font-bold text-white text-base mb-1">מחיקת חשבון</h3>
+      <p class="text-xs text-slate-400 mb-1">האם אתה בטוח שברצונך למחוק את החשבון הבא מהכספת?</p>
+      <div id="deleteAccountTitleDisplay" class="font-bold text-sm text-indigo-300 bg-slate-900/80 border border-slate-800 rounded-xl py-2 px-3 my-3"></div>
+      <p class="text-[11px] text-rose-400/80 mb-5">פעולה זו תסיר את החשבון לצמיתות מהרשימה.</p>
+      <div class="flex gap-2">
+        <button type="button" onclick="closeDeleteModal()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2.5 rounded-xl text-xs font-medium transition">ביטול</button>
+        <button type="button" onclick="executeDeleteAccount()" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white py-2.5 rounded-xl text-xs font-medium transition shadow-md shadow-rose-600/30 flex items-center justify-center gap-1.5">
+          <i class="fa-regular fa-trash-can text-xs"></i>
+          <span>מחק לצמיתות</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const initialAccountsData = [
       { id: "1", title: "Hostinger", user: "", pass: "N;B8y@-cBuVsAx1y", general: "ssh root@62.72.16.188", category: "tech" },
-      { id: "2", title: "n8n", user: "", pass: "&&hiliER1408", general: "", category: "tech" },
-      { id: "3", title: "Formspree", user: "", pass: "&&doritER0911", general: "https://formspree.io/", category: "tech" },
-      { id: "4", title: "Warsawproperties", user: "", pass: "&&hiliER1408", general: "https://warsawproperties.panelnajemcy.pl/", category: "general" },
-      { id: "5", title: "AI course", user: "", pass: "&&hiliER1408", general: "", category: "tech" },
-      { id: "6", title: "APEX", user: "", pass: "&&mayaER2810", general: "", category: "finance" },
-      { id: "7", title: "Blink", user: "", pass: "&&oriER0811", general: "", category: "finance" },
+      { id: "2", title: "n8n", user: "", pass: "hiliER1408&&", general: "", category: "tech" },
+      { id: "3", title: "Formspree", user: "", pass: "doritER0911&&", general: "https://formspree.io/", category: "tech" },
+      { id: "4", title: "Warsawproperties", user: "", pass: "hiliER1408&&", general: "https://warsawproperties.panelnajemcy.pl/", category: "general" },
+      { id: "5", title: "AI course", user: "", pass: "hiliER1408&&", general: "", category: "tech" },
+      { id: "6", title: "APEX", user: "", pass: "mayaER2810&&", general: "", category: "finance" },
+      { id: "7", title: "Blink", user: "", pass: "oriER0811&&", general: "", category: "finance" },
       { id: "8", title: "Discord", user: "", pass: "hiliER1408$$", general: "", category: "general" },
-      { id: "9", title: "Windows 11 Fusion password", user: "", pass: "&&hiliER1408", general: "", category: "tech" },
+      { id: "9", title: "Windows 11 Fusion password", user: "", pass: "hiliER1408&&", general: "", category: "tech" },
       { id: "10", title: "Israel GOV", user: "", pass: "oriER0811$$", general: "", category: "general" },
       { id: "11", title: "Macabi", user: "", pass: "hiliER1408", general: "", category: "general" },
-      { id: "12", title: "Alpha bank", user: "640151366063564", pass: "&&hiliER1408", general: "0714", category: "finance" },
+      { id: "12", title: "Alpha bank", user: "640151366063564", pass: "hiliER1408&&", general: "0714", category: "finance" },
       { id: "13", title: "Excellence Trade - Trade NASDAQ", user: "xnesar490", pass: "mayaER2810$$", general: "", category: "finance" },
       { id: "14", title: "ExtradePro - Trade IL", user: "ga625555", pass: "hiliER1408$$", general: "", category: "finance" },
       { id: "15", title: "Spotify", user: "", pass: "hiliER1408$$", general: "", category: "general" },
@@ -313,21 +577,21 @@
       { id: "18", title: "Garmin", user: "", pass: "oriER0811$$", general: "", category: "general" },
       { id: "19", title: "TradingView", user: "", pass: "mayaER2810$$", general: "היסטוריה:\n//hiliER1408$$\n//oriER0811&&", category: "finance" },
       { id: "20", title: "Excellence trade", user: "1280147812", pass: "mayaER2810$$", general: "היסטוריה:\n//hiliER1408", category: "finance" },
-      { id: "21", title: "Bank Poalim Asakim - GlobalNet", user: "VM26020", pass: "&&gadiER2505", general: "", category: "finance" },
+      { id: "21", title: "Bank Poalim Asakim - GlobalNet", user: "VM26020", pass: "gadiER2505&&", general: "", category: "finance" },
       { id: "22", title: "Bank Bin Leumi", user: "I01XEA9", pass: "hiliER1408", general: "131 - 368615\n131 - 367643\n\nהיסטוריה:\n//oriER0811$$\n//doritER0911$$\n//liatBA2709", category: "finance" },
       { id: "23", title: "ONE ZERO", user: "", pass: "gadiER2505", general: "", category: "finance" },
       { id: "24", title: "SNOW Forecast", user: "", pass: "gadiER2505", general: "", category: "travel" },
       { id: "25", title: "Globes", user: "", pass: "", general: "gadiER2505", category: "general" },
-      { id: "26", title: "Binance", user: "gadi.ernest@gmail.com", pass: "&&doritER0911", general: "GadiDoritHiliMayaOri\noriori0811\n\nמילות שחזור:\ndepend century ensure replace frost visa wing mirror roast blue\nveteran network portion turkey era intact apology purity green first\nblossom stomach approve stomach", category: "finance" },
+      { id: "26", title: "Binance", user: "gadi.ernest@gmail.com", pass: "doritER0911&&", general: "GadiDoritHiliMayaOri\noriori0811\n\nמילות שחזור:\ndepend century ensure replace frost visa wing mirror roast blue\nveteran network portion turkey era intact apology purity green first\nblossom stomach approve stomach", category: "finance" },
       { id: "27", title: "FaceBook", user: "", pass: "gadiER2505$$", general: "", category: "general" },
       { id: "28", title: "Ryanair", user: "", pass: "oriER0811", general: "", category: "travel" },
       { id: "29", title: "Bank Mizrahi - Tfahot", user: "5904116764", pass: "gadiER2505", general: "היסטוריה:\n//mayamaya2810\n//hilihili1408\n//oriori0811\n//gadigadi2505\n//doritER0911\n//mayaER2810\n//liatBA2709\n//giliBA3107", category: "finance" },
-      { id: "30", title: "MeitavDash", user: "91950", pass: "&&doritER0911", general: "היסטוריה:\n//oriER0811$$\n//hiliER1408$$\n//mayaER2810&&\n//gadiER2505&&", category: "finance" },
+      { id: "30", title: "MeitavDash", user: "91950", pass: "doritER0911&&", general: "היסטוריה:\n//oriER0811$$\n//hiliER1408$$\n//mayaER2810&&\n//gadiER2505&&", category: "finance" },
       { id: "31", title: "Spark", user: "", pass: "oriER0811$", general: "", category: "finance" },
       { id: "32", title: "Tarya", user: "", pass: "gadiER2505", general: "", category: "finance" },
       { id: "33", title: "Cibus", user: "32471", pass: "oriori0811", general: "BRCM semiconductors", category: "general" },
-      { id: "34", title: "401K", user: "gadiarnest56", pass: "&&oriER0811", general: "Charles Schwab\nHarimon", category: "finance" },
-      { id: "35", title: "RSU", user: "gadiernest56", pass: "&&hiliER1408", general: "", category: "finance" },
+      { id: "34", title: "401K", user: "gadiarnest56", pass: "oriER0811&&", general: "Charles Schwab\nHarimon", category: "finance" },
+      { id: "35", title: "RSU", user: "gadiernest56", pass: "hiliER1408&&", general: "", category: "finance" },
       { id: "36", title: "Hertz", user: "54464704", pass: "mayamaya2810", general: "", category: "travel" },
       { id: "37", title: "Vectorvest", user: "orimayahili", pass: "hiliER1408$$", general: "", category: "finance" },
       { id: "38", title: "nespresso Israel", user: "gadi.ernest@gmail.com", pass: "oriori0811", general: "7253379", category: "general" },
@@ -340,19 +604,19 @@
       { id: "45", title: "Road 6", user: "gadiernest", pass: "oriori0811", general: "024170714", category: "travel" },
       { id: "46", title: "Apple ID #1", user: "arnest.family@gmail.com", pass: "mayaER2810", general: "", category: "tech" },
       { id: "47", title: "Apple ID #2", user: "gadi.ernest@gmail.com", pass: "oriER0811", general: "", category: "tech" },
-      { id: "48", title: "Apple ID #3", user: "gadi.ernest55@gmail.com", pass: "&&oriER0811", general: "", category: "tech" },
-      { id: "49", title: "Broadcom Ltd", user: "ga932471", pass: "&&hiliER1408", general: "BRCM DISK KEY - BK7X-KL9T-F46P-7YYB-UQQD-UYGP\nBRCM GlobalConnect - portal.vpn.broadcom.com\n\nהיסטוריה:\n//doritER0911$$ //ronitER103&& //nadavER1505&& //oriER0811$$ //hiliER1408%% //mayaER2810$$ //hiliER1408$$ //doritER0911&& //mayaER2810&& //oriER0811&& //ronitER1003&& //liatER2709&& //giliER3107&& //aviSH1609&& //giliBA3107&& //oriER0811$$ //hiliER1408&& //doritER0911$$ //mayaER2810$$ //doritER0911&& //liatBA2709&& //helenaER1302&& //avraham1911&& //oriER0811&& //mayaER2810&&", category: "work" },
+      { id: "48", title: "Apple ID #3", user: "gadi.ernest55@gmail.com", pass: "oriER0811&&", general: "", category: "tech" },
+      { id: "49", title: "Broadcom Ltd", user: "ga932471", pass: "hiliER1408&&", general: "BRCM DISK KEY - BK7X-KL9T-F46P-7YYB-UQQD-UYGP\nBRCM GlobalConnect - portal.vpn.broadcom.com\n\nהיסטוריה:\n//doritER0911$$ //ronitER103&& //nadavER1505&& //oriER0811$$ //hiliER1408%% //mayaER2810$$ //hiliER1408$$ //doritER0911&& //mayaER2810&& //oriER0811&& //ronitER1003&& //liatER2709&& //giliER3107&& //aviSH1609&& //giliBA3107&& //oriER0811$$ //hiliER1408&& //doritER0911$$ //mayaER2810$$ //doritER0911&& //liatBA2709&& //helenaER1302&& //avraham1911&& //oriER0811&& //mayaER2810&&", category: "work" },
       { id: "50", title: "Gmail", user: "gadi.ernest@gmail.com", pass: "hiliER14$$", general: "", category: "general" },
       { id: "51", title: "Bank Poalim", user: "", pass: "helena1302", general: "024170714\n\nהיסטוריה:\n//daviddavid2505\n//madmon1408\n//gilBA3107\n//liatBA2709", category: "finance" },
       { id: "52", title: "PayPal IL", user: "arnest.family@gmail.com", pass: "mayamaya2810", general: "", category: "finance" },
       { id: "53", title: "PayPal Gadi", user: "gadi.ernest@gmail.com", pass: "oriER0811$$", general: "", category: "finance" },
       { id: "54", title: "Amazon home", user: "", pass: "gadiER2505", general: "", category: "general" },
       { id: "55", title: "Ebay", user: "gadiernest38", pass: "hilihili1408", general: "", category: "general" },
-      { id: "56", title: "ESOP", user: "24170714", pass: "&&mushipupiER", general: "ESOP$1234\n\nהיסטוריה:\n//aviramSH55$$ //amitorlyRmz66^^ //ronitmishel77&& //aviramsharon88** //dedidorit99(( //smadartamir55&& //orenudi8855%% //ramideon1000$$ //orenamir1536$$ //arikor1888$$ //davidguy6677$$ //davidamir777$$ //omrimadmon555$$ //izhareyal88$$ //mishelidan77$$ //natanliat55$$ //noamadi77$$ //amiroren55&& //nadavitay77$$ //menidudi66%% //zivudi55$$ //yaronGiLi77$$ //ronizhar55&& //avidedi777&& //gadiER2505&& //hiliER1408&& //dudielikoER$$", category: "finance" },
+      { id: "56", title: "ESOP", user: "24170714", pass: "mushipupiER&&", general: "ESOP$1234\n\nהיסטוריה:\n//aviramSH55$$ //amitorlyRmz66^^ //ronitmishel77&& //aviramsharon88** //dedidorit99(( //smadartamir55&& //orenudi8855%% //ramideon1000$$ //orenamir1536$$ //arikor1888$$ //davidguy6677$$ //davidamir777$$ //omrimadmon555$$ //izhareyal88$$ //mishelidan77$$ //natanliat55$$ //noamadi77$$ //amiroren55&& //nadavitay77$$ //menidudi66%% //zivudi55$$ //yaronGiLi77$$ //ronizhar55&& //avidedi777&& //gadiER2505&& //hiliER1408&& //dudielikoER$$", category: "finance" },
       { id: "57", title: "ELAL", user: "", pass: "mayaER2810", general: "היסטוריה: //hiliER1408", category: "travel" },
       { id: "58", title: "B&H", user: "", pass: "oriori0811", general: "", category: "general" },
       { id: "59", title: "Expedia", user: "gadi.ernest@gmail.com", pass: "gadiER2505", general: "", category: "travel" },
-      { id: "60", title: "United Airlines", user: "GNR78064", pass: "&&gadiER2505", general: "GAD Arnest\n03267802636", category: "travel" },
+      { id: "60", title: "United Airlines", user: "GNR78064", pass: "gadiER2505&&", general: "GAD Arnest\n03267802636", category: "travel" },
       { id: "61", title: "Lametayel", user: "gadiarnest41", pass: "oriori0811", general: "", category: "travel" },
       { id: "62", title: "InDigitalStock", user: "", pass: "", general: "41019022\nPanasonic Lumix DMC TS10", category: "general" },
       { id: "63", title: "Yahoo Account", user: "gad.arnest@yahoo.com", pass: "gadiER2505", general: "Oriki\nChapnik", category: "general" },
@@ -366,19 +630,7 @@
       try {
         const saved = localStorage.getItem('vault_accounts_data');
         if (saved) {
-          const list = JSON.parse(saved);
-          let changed = false;
-          // בדיקה ותיקון אוטומטי לכל סיסמה שמורה בדפדפן שהסתיימה ב-&&
-          list.forEach(item => {
-            if (item.pass && item.pass.endsWith('&&') && !item.pass.startsWith('&&')) {
-              item.pass = '&&' + item.pass.slice(0, -2);
-              changed = true;
-            }
-          });
-          if (changed) {
-            localStorage.setItem('vault_accounts_data', JSON.stringify(list));
-          }
-          return list;
+          return JSON.parse(saved);
         }
       } catch (e) {
         console.error("Failed loading from localStorage:", e);
@@ -387,6 +639,37 @@
     }
 
     let accountsData = getStoredAccounts();
+    let hasUnsavedChanges = false;
+
+    function notifyUnsavedChanges() {
+      hasUnsavedChanges = true;
+      const banner = document.getElementById('unsavedBanner');
+      if (banner) {
+        banner.classList.remove('hidden');
+      }
+      const saveBtn = document.getElementById('saveFileHeaderBtn');
+      if (saveBtn) {
+        saveBtn.classList.remove('bg-emerald-600');
+        saveBtn.classList.add('bg-amber-500', 'hover:bg-amber-400', 'text-slate-950', 'animate-pulse');
+      }
+    }
+
+    function markChangesSaved() {
+      hasUnsavedChanges = false;
+      const banner = document.getElementById('unsavedBanner');
+      if (banner) {
+        banner.classList.add('hidden');
+      }
+      const saveBtn = document.getElementById('saveFileHeaderBtn');
+      if (saveBtn) {
+        saveBtn.classList.remove('bg-amber-500', 'hover:bg-amber-400', 'text-slate-950', 'animate-pulse');
+        saveBtn.classList.add('bg-emerald-600', 'text-white');
+      }
+    }
+
+    function dismissUnsavedBanner() {
+      document.getElementById('unsavedBanner').classList.add('hidden');
+    }
 
     function persistAccounts() {
       try {
@@ -394,6 +677,7 @@
       } catch (e) {
         console.error("Failed saving to localStorage:", e);
       }
+      notifyUnsavedChanges();
     }
 
     let currentFilter = 'all';
@@ -587,7 +871,16 @@
                   <div class="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700/80 flex items-center justify-center text-indigo-400 group-hover:text-indigo-300 group-hover:border-indigo-500/50 transition shadow-inner">
                     <i class="fa-solid fa-cube text-sm"></i>
                   </div>
-                  <h3 class="font-bold text-white text-base leading-tight">${escapeHtml(item.title)}</h3>
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <h3 class="font-bold text-white text-base leading-tight">${escapeHtml(item.title)}</h3>
+                    <button 
+                      onclick="openEditAccountModal('${item.id}')" 
+                      class="text-slate-500 hover:text-indigo-400 p-1 rounded-md transition" 
+                      title="עריכת שם החשבון ופרטיו"
+                    >
+                      <i class="fa-solid fa-pen text-[11px]"></i>
+                    </button>
+                  </div>
                 </div>
                 ${badge}
               </div>
@@ -597,7 +890,7 @@
                 <div class="mb-3 bg-slate-900/80 rounded-xl p-2.5 border border-slate-800 flex items-center justify-between">
                   <div class="overflow-hidden">
                     <div class="text-[10px] font-medium text-slate-400 mb-0.5">שם משתמש / מזהה</div>
-                    <div class="text-xs font-mono text-slate-200 truncate select-all" title="${escapeHtml(item.user)}">${escapeHtml(item.user)}</div>
+                    <div class="text-xs font-mono text-slate-200 truncate select-all force-ltr" title="${escapeHtml(item.user)}">${escapeHtml(item.user)}</div>
                   </div>
                   <button 
                     onclick="copyText('${escapeJsString(item.user)}', 'שם המשתמש')" 
@@ -613,7 +906,7 @@
               <div class="mb-3 bg-slate-900/80 rounded-xl p-2.5 border border-slate-800 flex items-center justify-between">
                 <div class="overflow-hidden flex-1">
                   <div class="text-[10px] font-medium text-slate-400 mb-0.5">סיסמה</div>
-                  <div class="text-xs font-mono text-indigo-300 tracking-wider truncate select-all" id="passText_${item.id}">
+                  <div class="text-xs font-mono text-indigo-300 tracking-wider truncate select-all force-ltr" id="passText_${item.id}">
                     ${displayPassword}
                   </div>
                 </div>
@@ -660,8 +953,17 @@
               <span class="font-mono">#${item.id}</span>
               <div class="flex items-center gap-3">
                 <button 
+                  onclick="openEditAccountModal('${item.id}')" 
+                  class="text-[11px] text-indigo-400 hover:text-indigo-300 transition flex items-center gap-1 font-medium"
+                  title="עריכת כל פרטי החשבון"
+                >
+                  <i class="fa-solid fa-pen-to-square text-[10px]"></i>
+                  <span>ערוך הכל</span>
+                </button>
+                <button 
                   onclick="openUpdatePasswordModal('${item.id}')" 
-                  class="text-[11px] text-indigo-400 hover:text-indigo-300 transition flex items-center gap-1"
+                  class="text-[11px] text-slate-400 hover:text-slate-200 transition flex items-center gap-1"
+                  title="עדכון סיסמה מהיר בלבד"
                 >
                   <i class="fa-solid fa-arrows-rotate text-[10px]"></i>
                   <span>עדכון סיסמה</span>
@@ -675,11 +977,109 @@
                     <span>העתק הערות</span>
                   </button>
                 ` : ''}
+                <button 
+                  onclick="confirmDeleteAccount('${item.id}')" 
+                  class="text-[11px] text-slate-500 hover:text-rose-400 transition flex items-center gap-1"
+                  title="מחיקת חשבון מהכספת"
+                >
+                  <i class="fa-regular fa-trash-can text-[10px]"></i>
+                  <span>מחיקה</span>
+                </button>
               </div>
             </div>
           </div>
         `;
       }).join('');
+    }
+
+    let originalPassBeforeEdit = '';
+
+    function openEditAccountModal(id) {
+      const item = accountsData.find(a => a.id === String(id));
+      if (!item) return;
+
+      document.getElementById('editDetailsId').value = item.id;
+      document.getElementById('editDetailsTitle').value = item.title || '';
+      document.getElementById('editDetailsUser').value = item.user || '';
+      document.getElementById('editDetailsPass').value = item.pass || '';
+      originalPassBeforeEdit = item.pass || '';
+      document.getElementById('editAutoSaveHistory').checked = true;
+      document.getElementById('editDetailsCategory').value = item.category || 'general';
+      document.getElementById('editDetailsGeneral').value = item.general || '';
+
+      document.getElementById('editAccountModal').classList.remove('hidden');
+      document.getElementById('editDetailsTitle').focus();
+    }
+
+    function generateSuggestedPasswordForEdit() {
+      const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%^&*';
+      let pass = '';
+      for (let i = 0; i < 14; i++) {
+        pass += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      document.getElementById('editDetailsPass').value = pass;
+    }
+
+    function toggleEditPassInputVisibility() {
+      const input = document.getElementById('editDetailsPass');
+      const icon = document.getElementById('editPassVisibilityIcon');
+      const text = document.getElementById('editPassVisibilityText');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+        text.textContent = 'הסתר';
+      } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+        text.textContent = 'הצג';
+      }
+    }
+
+    function closeEditAccountModal() {
+      document.getElementById('editAccountModal').classList.add('hidden');
+    }
+
+    function saveEditedAccount(e) {
+      e.preventDefault();
+      const id = document.getElementById('editDetailsId').value;
+      const newTitle = document.getElementById('editDetailsTitle').value.trim();
+      const newUser = document.getElementById('editDetailsUser').value.trim();
+      let newPass = document.getElementById('editDetailsPass').value.trim();
+      const shouldSaveHistory = document.getElementById('editAutoSaveHistory').checked;
+      const newCat = document.getElementById('editDetailsCategory').value;
+      let newGen = document.getElementById('editDetailsGeneral').value.trim();
+
+      if (!newTitle) return;
+
+      const item = accountsData.find(a => a.id === String(id));
+      if (!item) return;
+
+      // שמירה בהיסטוריה אם הסיסמה השתנתה
+      if (shouldSaveHistory && originalPassBeforeEdit && newPass !== originalPassBeforeEdit) {
+        const historyEntry = `//${originalPassBeforeEdit}`;
+        if (newGen.length > 0) {
+          if (newGen.includes('היסטוריה:')) {
+            newGen = newGen.replace('היסטוריה:', `היסטוריה:\n${historyEntry}`);
+          } else {
+            newGen = `${newGen}\n\nהיסטוריה:\n${historyEntry}`;
+          }
+        } else {
+          newGen = `היסטוריה:\n${historyEntry}`;
+        }
+      }
+
+      item.title = newTitle;
+      item.user = newUser;
+      item.pass = newPass; // שמירה מדויקת ללא שינוי תווי סיום
+      item.category = newCat;
+      item.general = newGen;
+
+      persistAccounts();
+      renderAccounts();
+      closeEditAccountModal();
+      showToast(`החשבון "${newTitle}" עודכן! זכור לשמור לקובץ`);
     }
 
     function openUpdatePasswordModal(id) {
@@ -688,7 +1088,9 @@
 
       document.getElementById('editAccountId').value = item.id;
       document.getElementById('editAccountTitle').textContent = item.title;
-      document.getElementById('editCurrentPassDisplay').textContent = item.pass || '(אין סיסמה קיימת)';
+      const curDisplay = document.getElementById('editCurrentPassDisplay');
+      curDisplay.textContent = item.pass || '(אין סיסמה קיימת)';
+      curDisplay.className = 'font-mono text-sm text-slate-300 font-semibold select-all force-ltr inline-block';
       document.getElementById('editNewPassInput').value = '';
       document.getElementById('editSaveToHistory').checked = true;
       document.getElementById('updateAccountModal').classList.remove('hidden');
@@ -697,6 +1099,91 @@
 
     function closeUpdatePasswordModal() {
       document.getElementById('updateAccountModal').classList.add('hidden');
+    }
+
+    function openAddAccountModal() {
+      document.getElementById('newAccountTitle').value = '';
+      document.getElementById('newAccountUser').value = '';
+      document.getElementById('newAccountPass').value = '';
+      document.getElementById('newAccountCategory').value = 'general';
+      document.getElementById('newAccountGeneral').value = '';
+      document.getElementById('addAccountModal').classList.remove('hidden');
+      document.getElementById('newAccountTitle').focus();
+    }
+
+    function closeAddAccountModal() {
+      document.getElementById('addAccountModal').classList.add('hidden');
+    }
+
+    let pendingDeleteId = null;
+
+    function confirmDeleteAccount(id) {
+      const item = accountsData.find(a => a.id === String(id));
+      if (!item) return;
+      pendingDeleteId = String(id);
+      document.getElementById('deleteAccountTitleDisplay').textContent = item.title;
+      document.getElementById('deleteAccountModal').classList.remove('hidden');
+    }
+
+    function closeDeleteModal() {
+      pendingDeleteId = null;
+      document.getElementById('deleteAccountModal').classList.add('hidden');
+    }
+
+    function executeDeleteAccount() {
+      if (!pendingDeleteId) return;
+      const index = accountsData.findIndex(a => a.id === pendingDeleteId);
+      if (index !== -1) {
+        const deletedTitle = accountsData[index].title;
+        accountsData.splice(index, 1);
+        persistAccounts();
+        renderAccounts();
+        showToast(`החשבון "${deletedTitle}" נמחק בהצלחה`);
+      }
+      closeDeleteModal();
+    }
+
+    function generateSuggestedPassword() {
+      const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%^&*';
+      let pass = '';
+      for (let i = 0; i < 14; i++) {
+        pass += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      document.getElementById('newAccountPass').value = pass;
+    }
+
+    function saveNewAccount(e) {
+      e.preventDefault();
+      const title = document.getElementById('newAccountTitle').value.trim();
+      const user = document.getElementById('newAccountUser').value.trim();
+      let pass = document.getElementById('newAccountPass').value.trim();
+      const category = document.getElementById('newAccountCategory').value;
+      const general = document.getElementById('newAccountGeneral').value.trim();
+
+      if (!title) return;
+
+      // קביעת מזהה ייחודי חדש
+      const maxId = accountsData.reduce((max, item) => {
+        const num = parseInt(item.id, 10);
+        return !isNaN(num) && num > max ? num : max;
+      }, 0);
+      const newId = String(maxId + 1);
+
+      const newAccount = {
+        id: newId,
+        title: title,
+        user: user,
+        pass: pass, // שמירה מדויקת כפי שהוזנה
+        general: general,
+        category: category
+      };
+
+      // הוספה לראש הרשימה
+      accountsData.unshift(newAccount);
+      persistAccounts();
+      renderAccounts();
+      closeAddAccountModal();
+      showToast(`החשבון "${title}" נוסף! זכור לשמור לקובץ`);
     }
 
     function saveUpdatedPassword(e) {
@@ -730,28 +1217,86 @@
       persistAccounts();
       renderAccounts();
       closeUpdatePasswordModal();
-      showToast('הסיסמה עודכנה והקודמת נשמרה בהיסטוריה!');
+      showToast('הסיסמה עודכנה! זכור לשמור לקובץ');
     }
 
-    function exportUpdatedHtml() {
-      const currentDocHtml = document.documentElement.outerHTML;
-      // מעדכנים את נתוני המערך הראשוני בקובץ המיוצא כך שיהיו שמורים בקובץ עצמו
-      const updatedDataString = JSON.stringify(accountsData, null, 2);
-      const modifiedHtml = currentDocHtml.replace(
-        /const initialAccountsData = \[[\s\S]*?\n    \];/,
-        `const initialAccountsData = ${updatedDataString};`
-      );
+    function generateUpdatedHtmlContent() {
+      // יוצרים גרסה נקייה של ה-HTML שבה המודאלים סגורים והכספת נעולה
+      let docHtml = document.documentElement.outerHTML;
 
-      const blob = new Blob([modifiedHtml], { type: 'text/html;charset=utf-8' });
+      // הבטחה שקוד ה-HTML יתחיל עם הגדרת DOCTYPE תקינה
+      if (!docHtml.startsWith('<!DOCTYPE') && !docHtml.startsWith('<!doctype')) {
+        docHtml = '<!DOCTYPE html>\n<html lang="he" dir="rtl">\n' + docHtml.replace(/<html[^>]*>/, '');
+      }
+
+      // החלפה חסינת-תקלות של נתוני initialAccountsData
+      const startMarker = 'const initialAccountsData =';
+      const endMarker = 'function getStoredAccounts()';
+
+      const startIndex = docHtml.indexOf(startMarker);
+      const endIndex = docHtml.indexOf(endMarker);
+
+      if (startIndex !== -1 && endIndex !== -1) {
+        const formattedData = JSON.stringify(accountsData, null, 2);
+        docHtml = docHtml.substring(0, startIndex) +
+          `const initialAccountsData = ${formattedData};\n\n    ` +
+          docHtml.substring(endIndex);
+      }
+
+      // איפוס מודאלים פתוחים או מצב נעילה פתוח בקובץ שיוצא
+      docHtml = docHtml.replace(/id="lockScreen" class="[^"]*"/, 'id="lockScreen" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-xl flex items-center justify-center p-4 transition-all duration-500"');
+      docHtml = docHtml.replace(/id="unsavedBanner" class="[^"]*"/, 'id="unsavedBanner" class="hidden"');
+
+      return docHtml;
+    }
+
+    async function saveToFileDirectly() {
+      const updatedHtml = generateUpdatedHtmlContent();
+
+      // אם הדפדפן תומך ב-File System Access API (Chrome, Edge, Opera)
+      if ('showSaveFilePicker' in window) {
+        try {
+          const fileHandle = await window.showSaveFilePicker({
+            suggestedName: 'password_manager.html',
+            types: [{
+              description: 'HTML File (*.html)',
+              accept: { 'text/html': ['.html', '.htm'] }
+            }]
+          });
+          const writableStream = await fileHandle.createWritable();
+          await writableStream.write(updatedHtml);
+          await writableStream.close();
+
+          markChangesSaved();
+          showToast('הקובץ המקורי עודכן ונשמר בהצלחה!');
+          return;
+        } catch (err) {
+          if (err.name === 'AbortError') {
+            // המשתמש ביטל את חלון הבחירה
+            return;
+          }
+          console.warn('FilePicker error, falling back to download:', err);
+        }
+      }
+
+      // מנגנון הורדה ישיר (Fallback עבור Firefox / Safari / מובייל)
+      const blob = new Blob([updatedHtml], { type: 'text/html;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'passwords_vault_updated.html';
+      link.download = 'password_manager.html';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      showToast('הקובץ המעודכן הורד בהצלחה!');
+
+      markChangesSaved();
+      showToast('הקובץ המעודכן הורד למחשב בהצלחה!');
+    }
+
+    // שמירה על שם הפונקציה הישן לגיבוי
+    function exportUpdatedHtml() {
+      saveToFileDirectly();
     }
 
     function openPasswordChangeModal() {
